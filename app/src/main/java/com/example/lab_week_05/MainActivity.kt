@@ -1,9 +1,10 @@
 package com.example.lab_week_05
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import com.example.lab_week_05.api.CatApiService
 import com.example.lab_week_05.model.ImageData
 import com.squareup.moshi.Moshi
@@ -16,10 +17,9 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 
 class MainActivity : AppCompatActivity() {
 
-    // Retrofit instance pakai Moshi + KotlinJsonAdapterFactory
     private val retrofit by lazy {
         val moshi = Moshi.Builder()
-            .add(KotlinJsonAdapterFactory()) // penting buat Kotlin data class
+            .add(KotlinJsonAdapterFactory())
             .build()
 
         Retrofit.Builder()
@@ -28,20 +28,21 @@ class MainActivity : AppCompatActivity() {
             .build()
     }
 
-    // API service
     private val catApiService by lazy {
         retrofit.create(CatApiService::class.java)
     }
 
     private lateinit var apiResponseView: TextView
+    private lateinit var imageResultView: ImageView
+    private val imageLoader: ImageLoader by lazy { GlideLoader(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         apiResponseView = findViewById(R.id.api_response)
+        imageResultView = findViewById(R.id.image_result)
 
-        // panggil API
         getCatImageResponse()
     }
 
@@ -50,7 +51,7 @@ class MainActivity : AppCompatActivity() {
 
         call.enqueue(object : Callback<List<ImageData>> {
             override fun onFailure(call: Call<List<ImageData>>, t: Throwable) {
-                Log.e(MAIN_ACTIVITY, "Failed to get response", t)
+                Log.e(MAIN_ACTIVITY, "❌ Failed to get response", t)
                 apiResponseView.text = "Failed to get response: ${t.message}"
             }
 
@@ -60,10 +61,24 @@ class MainActivity : AppCompatActivity() {
             ) {
                 if (response.isSuccessful) {
                     val imageList = response.body()
-                    val firstImage = imageList?.firstOrNull()?.imageUrl ?: "No URL"
-                    apiResponseView.text = "Image URL: $firstImage"
+                    Log.d(MAIN_ACTIVITY, "✅ Response received: $imageList")
+
+                    val firstImage = imageList?.firstOrNull()?.imageUrl.orEmpty()
+                    Log.d(MAIN_ACTIVITY, "🖼️ firstImage URL: $firstImage")
+
+                    if (firstImage.isNotBlank()) {
+                        imageLoader.loadImage(firstImage, imageResultView)
+                        apiResponseView.text =
+                            getString(R.string.image_placeholder, firstImage)
+                    } else {
+                        Log.e(MAIN_ACTIVITY, "⚠️ No image URL found in API response")
+                        apiResponseView.text = "No image found."
+                    }
                 } else {
-                    Log.e(MAIN_ACTIVITY, "Response failed: ${response.errorBody()?.string()}")
+                    Log.e(
+                        MAIN_ACTIVITY,
+                        "❌ API response failed: ${response.errorBody()?.string().orEmpty()}"
+                    )
                     apiResponseView.text = "Failed to load image data."
                 }
             }
